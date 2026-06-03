@@ -211,17 +211,30 @@ func fillUserNumbers(db *sql.DB, execer dbExecer, people []Psn) error {
 			if err != sql.ErrNoRows {
 				return err
 			}
-			usrNo, ssoID, err = findUserByNameAndDepID(db, value.Name, value.DepID)
+			var depIDOut string
+			usrNo, ssoID, dep, depIDOut, err = findUserByNameAndDepID(db, value.Name, value.DepID)
 			if err != nil && err != sql.ErrNoRows {
 				return err
 			}
+			if err == nil {
+				depID = depIDOut
+			}
 		}
 
-		if usrNo != "" && dep != "" && depID != "" && (ssoID == "" || dep != value.DepName || depID != value.DepID) {
-			if _, err := execer.Exec("update doreuser set ssoID=?,department=?,depID=? where usrNo=?", value.SysID, value.DepName, value.DepID, usrNo); err != nil {
-				return err
+		if usrNo != "" {
+			dbSSOID := strings.TrimSpace(ssoID)
+			dbDep := strings.TrimSpace(dep)
+			dbDepID := strings.TrimSpace(depID)
+			valSysID := strings.TrimSpace(value.SysID)
+			valDepName := strings.TrimSpace(value.DepName)
+			valDepID := strings.TrimSpace(value.DepID)
+
+			if dbSSOID == "" || dbDep != valDepName || dbDepID != valDepID || dbSSOID != valSysID {
+				if _, err := execer.Exec("update doreuser set ssoID=?,department=?,depID=? where usrNo=?", valSysID, valDepName, valDepID, usrNo); err != nil {
+					return err
+				}
+				fmt.Printf("update ssoID: %v\n", value)
 			}
-			fmt.Printf("update ssoID: %v\n", value)
 		}
 
 		people[i].UsrNo = usrNo
@@ -236,10 +249,10 @@ func findUserBySSOID(db *sql.DB, sysID string) (usrNo, ssoID, dep, depID string,
 	return usrNo, ssoID, dep, depID, err
 }
 
-func findUserByNameAndDepID(db *sql.DB, name, depID string) (usrNo, ssoID string, err error) {
-	row := db.QueryRow("select usrNo,ssoID from doreuser where name=? and depID=?", name, depID)
-	err = row.Scan(&usrNo, &ssoID)
-	return usrNo, ssoID, err
+func findUserByNameAndDepID(db *sql.DB, name, depID string) (usrNo, ssoID, dep, depIDOut string, err error) {
+	row := db.QueryRow("select usrNo,ssoID,department,depID from doreuser where name=? and depID=?", name, depID)
+	err = row.Scan(&usrNo, &ssoID, &dep, &depIDOut)
+	return usrNo, ssoID, dep, depIDOut, err
 }
 
 func listPeopleInRole(db *sql.DB, roleID string) ([]Psn, error) {
