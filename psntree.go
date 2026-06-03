@@ -257,14 +257,25 @@ func fillUserNumbers(db *sql.DB, execer dbExecer, people []Psn, logFunc func(str
 					usrNo, dbSSOID, len(dbSSOID), dbDep, len(dbDep), dbDepID, len(dbDepID),
 					valSysID, len(valSysID), valDepName, len(valDepName), valDepID, len(valDepID))
 				query := "update doreuser set ssoID=?,department=?,depID=? where usrNo=?"
-				if _, err := execer.Exec(query, valSysID, valDepName, valDepID, usrNo); err != nil {
-					return err
+				res, err := execer.Exec(query, valSysID, valDepName, valDepID, usrNo)
+				var resultMsg string
+				if err != nil {
+					resultMsg = fmt.Sprintf("失敗: %v", err)
+				} else {
+					var rowsAffected int64
+					if res != nil {
+						rowsAffected, _ = res.RowsAffected()
+					}
+					resultMsg = fmt.Sprintf("成功 (受影響列數: %d)", rowsAffected)
 				}
-				msg := fmt.Sprintf("更新使用者資訊 [usrNo: %s, 姓名: %s] 到資料表 doreuser:\n  - 舊資料: ssoID=%q, 單位=%q (代碼: %q)\n  - 新資料: ssoID=%q, 單位=%q (代碼: %q)\n  - 執行 SQL: %s (參數: ssoID=%q, department=%q, depID=%q, usrNo=%q)",
-					usrNo, value.Name, dbSSOID, dbDep, dbDepID, valSysID, valDepName, valDepID, query, valSysID, valDepName, valDepID, usrNo)
+				msg := fmt.Sprintf("更新使用者資訊 [usrNo: %s, 姓名: %s] 到資料表 doreuser:\n  - 舊資料: ssoID=%q, 單位=%q (代碼: %q)\n  - 新資料: ssoID=%q, 單位=%q (代碼: %q)\n  - 執行 SQL: %s (參數: ssoID=%q, department=%q, depID=%q, usrNo=%q)\n  - 執行結果: %s",
+					usrNo, value.Name, dbSSOID, dbDep, dbDepID, valSysID, valDepName, valDepID, query, valSysID, valDepName, valDepID, usrNo, resultMsg)
 				fmt.Println(msg)
 				if logFunc != nil {
 					logFunc(msg)
+				}
+				if err != nil {
+					return err
 				}
 			}
 		}
