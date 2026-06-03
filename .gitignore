@@ -3,3 +3,4 @@
 *.exe
 *.old
 config.json
+*.json
