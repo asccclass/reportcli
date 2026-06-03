@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -551,5 +552,15 @@ func (app *PsnTree) GenerateReport() error {
 	}
 
 	fmt.Printf("Daily report generated: %s\n", fileName)
+
+	// Clean up other days' daily reports
+	if files, err := filepath.Glob("report_*.txt"); err == nil {
+		for _, f := range files {
+			if filepath.Base(f) != fileName {
+				_ = os.Remove(f)
+			}
+		}
+	}
+
 	return nil
 }
