@@ -10,15 +10,17 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	SherryClient "reportcli/client"
 )
 
 type PsnTree struct {
-	ServerURL string
-	Files     []string
-	Bearer    string
-	DBConfig  DBConnect
+	ServerURL  string
+	Files      []string
+	Bearer     string
+	DBConfig   DBConnect
+	ReportLogs []string
 }
 
 type Psn struct {
@@ -126,7 +128,9 @@ func (app *PsnTree) GetRemoteFileAndCompare(client *SherryClient.SryClient, file
 		return err
 	}
 
-	fmt.Printf("sync remote file %s...\n", fileName)
+	msg := fmt.Sprintf("sync remote file %s...", fileName)
+	fmt.Println(msg)
+	app.log(msg)
 	req, err := http.NewRequest(http.MethodGet, app.ServerURL+"read/"+fileName, payload)
 	if err != nil {
 		return err
@@ -167,7 +171,7 @@ func (app *PsnTree) GetRemoteFileAndCompare(client *SherryClient.SryClient, file
 		return err
 	}
 
-	if err := fillUserNumbers(conn.Conn, conn, people); err != nil {
+	if err := fillUserNumbers(conn.Conn, conn, people, app.log); err != nil {
 		return err
 	}
 
@@ -176,7 +180,7 @@ func (app *PsnTree) GetRemoteFileAndCompare(client *SherryClient.SryClient, file
 		return err
 	}
 
-	if err := syncRoleMembers(conn, roleID, people, peopleInDB); err != nil {
+	if err := syncRoleMembers(conn, roleID, people, peopleInDB, app.log); err != nil {
 		return err
 	}
 
@@ -209,7 +213,7 @@ func lookupRoleID(db *sql.DB, typez string) (string, error) {
 	return roleID, nil
 }
 
-func fillUserNumbers(db *sql.DB, execer dbExecer, people []Psn) error {
+func fillUserNumbers(db *sql.DB, execer dbExecer, people []Psn, logFunc func(string)) error {
 	for i, value := range people {
 		usrNo, ssoID, dep, depID, err := findUserBySSOID(db, value.SysID)
 		if err != nil {
@@ -237,7 +241,11 @@ func fillUserNumbers(db *sql.DB, execer dbExecer, people []Psn) error {
 				if _, err := execer.Exec("update doreuser set ssoID=?,department=?,depID=? where usrNo=?", valSysID, valDepName, valDepID, usrNo); err != nil {
 					return err
 				}
-				fmt.Printf("update ssoID: %v\n", value)
+				msg := fmt.Sprintf("update ssoID: %v", value)
+				fmt.Println(msg)
+				if logFunc != nil {
+					logFunc(msg)
+				}
 			}
 		}
 
@@ -307,7 +315,7 @@ func listPeopleInRole(db *sql.DB, roleID string) ([]Psn, error) {
 	return people, nil
 }
 
-func syncRoleMembers(execer dbExecer, roleID string, remotePeople, dbPeople []Psn) error {
+func syncRoleMembers(execer dbExecer, roleID string, remotePeople, dbPeople []Psn, logFunc func(string)) error {
 	remoteByUsrNo := make(map[string]int, len(remotePeople))
 	for i, person := range remotePeople {
 		if person.UsrNo != "" {
@@ -325,7 +333,11 @@ func syncRoleMembers(execer dbExecer, roleID string, remotePeople, dbPeople []Ps
 		if _, err := execer.Exec("delete from doreuserrole where usrNo=? and roleID=?", person.UsrNo, roleID); err != nil {
 			return err
 		}
-		fmt.Printf("   delete from doreuserrole where usrNo=%s and roleID=%s\n", person.UsrNo, roleID)
+		msg := fmt.Sprintf("   delete from doreuserrole where usrNo=%s and roleID=%s", person.UsrNo, roleID)
+		fmt.Println(msg)
+		if logFunc != nil {
+			logFunc(msg)
+		}
 	}
 
 	for _, person := range remotePeople {
@@ -336,7 +348,11 @@ func syncRoleMembers(execer dbExecer, roleID string, remotePeople, dbPeople []Ps
 		if _, err := execer.Exec("insert into doreuserrole(usrNo, roleID) values(?, ?)", person.UsrNo, roleID); err != nil {
 			return err
 		}
-		fmt.Printf("   insert into doreuserrole(usrNo, roleID) values(%s, %s)\n", person.UsrNo, roleID)
+		msg := fmt.Sprintf("   insert into doreuserrole(usrNo, roleID) values(%s, %s)", person.UsrNo, roleID)
+		fmt.Println(msg)
+		if logFunc != nil {
+			logFunc(msg)
+		}
 	}
 
 	return nil
@@ -383,4 +399,36 @@ func verifyRoleMembers(roleID string, remotePeople, dbPeople []Psn) error {
 		strings.Join(missing, ", "),
 		strings.Join(unexpected, ", "),
 	)
+}
+
+func (app *PsnTree) log(msg string) {
+	app.ReportLogs = append(app.ReportLogs, msg)
+}
+
+func (app *PsnTree) GenerateReport() error {
+	today := time.Now().Format("20060102")
+	fileName := fmt.Sprintf("report_%s.txt", today)
+
+	var buf strings.Builder
+	buf.WriteString("========================================\n")
+	buf.WriteString(" 全院同仁學習時數管理系統每日同步報告\n")
+	buf.WriteString(fmt.Sprintf(" 執行時間: %s\n", time.Now().Format("2006-01-02 15:04:05")))
+	buf.WriteString("========================================\n\n")
+
+	if len(app.ReportLogs) == 0 {
+		buf.WriteString("沒有任何資料變更。\n")
+	} else {
+		for _, log := range app.ReportLogs {
+			buf.WriteString(log)
+			buf.WriteString("\n")
+		}
+	}
+
+	err := os.WriteFile(fileName, []byte(buf.String()), 0644)
+	if err != nil {
+		return fmt.Errorf("write report file: %w", err)
+	}
+
+	fmt.Printf("Daily report generated: %s\n", fileName)
+	return nil
 }

@@ -55,7 +55,7 @@ func TestSyncRoleMembersDeletesAndInserts(t *testing.T) {
 		{UsrNo: "u2"},
 	}
 
-	if err := syncRoleMembers(execer, "role1", remotePeople, dbPeople); err != nil {
+	if err := syncRoleMembers(execer, "role1", remotePeople, dbPeople, nil); err != nil {
 		t.Fatalf("syncRoleMembers returned error: %v", err)
 	}
 
