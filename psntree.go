@@ -27,7 +27,6 @@ type PsnTree struct {
 	DBConfig         DBConnect
 	ReportLogs       []string
 	ValidDepsBySysID map[string][]UserDept
-	ValidDepsByName  map[string][]UserDept
 }
 
 type Psn struct {
@@ -115,7 +114,6 @@ func (app *PsnTree) DoCompare(payload string) error {
 	app.Bearer = ber.Token
 
 	app.ValidDepsBySysID = make(map[string][]UserDept)
-	app.ValidDepsByName = make(map[string][]UserDept)
 
 	type FileData struct {
 		name   string
@@ -132,15 +130,11 @@ func (app *PsnTree) DoCompare(payload string) error {
 
 		for _, p := range people {
 			sysID := strings.TrimSpace(p.SysID)
-			name := strings.TrimSpace(p.Name)
 			depID := strings.TrimSpace(p.DepID)
 			depName := strings.TrimSpace(p.DepName)
 
 			if sysID != "" {
 				app.ValidDepsBySysID[sysID] = append(app.ValidDepsBySysID[sysID], UserDept{DepID: depID, DepName: depName})
-			}
-			if name != "" {
-				app.ValidDepsByName[name] = append(app.ValidDepsByName[name], UserDept{DepID: depID, DepName: depName})
 			}
 		}
 	}
@@ -313,16 +307,8 @@ func (app *PsnTree) fillUserNumbers(db *sql.DB, execer dbExecer, people []Psn, l
 			valDepID := strings.TrimSpace(value.DepID)
 
 			alreadyCorrect := false
-			if dbSSOID == valSysID && dbSSOID != "" {
+			if valSysID != "" {
 				validDeps := app.ValidDepsBySysID[valSysID]
-				for _, vd := range validDeps {
-					if vd.DepName == dbDep && isNumericEqual(vd.DepID, dbDepID) {
-						alreadyCorrect = true
-						break
-					}
-				}
-			} else if dbSSOID == "" {
-				validDeps := app.ValidDepsByName[strings.TrimSpace(value.Name)]
 				for _, vd := range validDeps {
 					if vd.DepName == dbDep && isNumericEqual(vd.DepID, dbDepID) {
 						alreadyCorrect = true
