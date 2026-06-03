@@ -238,11 +238,12 @@ func fillUserNumbers(db *sql.DB, execer dbExecer, people []Psn, logFunc func(str
 				fmt.Printf("DEBUG: usrNo=%q, dbSSOID=%q (len=%d), dbDep=%q (len=%d), dbDepID=%q (len=%d) vs valSysID=%q (len=%d), valDepName=%q (len=%d), valDepID=%q (len=%d)\n",
 					usrNo, dbSSOID, len(dbSSOID), dbDep, len(dbDep), dbDepID, len(dbDepID),
 					valSysID, len(valSysID), valDepName, len(valDepName), valDepID, len(valDepID))
-				if _, err := execer.Exec("update doreuser set ssoID=?,department=?,depID=? where usrNo=?", valSysID, valDepName, valDepID, usrNo); err != nil {
+				query := "update doreuser set ssoID=?,department=?,depID=? where usrNo=?"
+				if _, err := execer.Exec(query, valSysID, valDepName, valDepID, usrNo); err != nil {
 					return err
 				}
-				msg := fmt.Sprintf("更新使用者資訊 [usrNo: %s, 姓名: %s]:\n  - 舊資料: ssoID=%q, 單位=%q (代碼: %q)\n  - 新資料: ssoID=%q, 單位=%q (代碼: %q)",
-					usrNo, value.Name, dbSSOID, dbDep, dbDepID, valSysID, valDepName, valDepID)
+				msg := fmt.Sprintf("更新使用者資訊 [usrNo: %s, 姓名: %s] 到資料表 doreuser:\n  - 舊資料: ssoID=%q, 單位=%q (代碼: %q)\n  - 新資料: ssoID=%q, 單位=%q (代碼: %q)\n  - 執行 SQL: %s (參數: ssoID=%q, department=%q, depID=%q, usrNo=%q)",
+					usrNo, value.Name, dbSSOID, dbDep, dbDepID, valSysID, valDepName, valDepID, query, valSysID, valDepName, valDepID, usrNo)
 				fmt.Println(msg)
 				if logFunc != nil {
 					logFunc(msg)
