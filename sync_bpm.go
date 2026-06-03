@@ -72,11 +72,16 @@ func syncBPM(sysini System) error {
 		return err
 	}
 
-	if err := psntree.StartSync(sysini.ClientID, sysini.ClientSecret); err != nil {
-		return err
+	syncErr := psntree.StartSync(sysini.ClientID, sysini.ClientSecret)
+	if syncErr != nil {
+		psntree.log(fmt.Sprintf("同步失敗: %v", syncErr))
 	}
 
-	return psntree.GenerateReport()
+	reportErr := psntree.GenerateReport()
+	if syncErr != nil {
+		return syncErr
+	}
+	return reportErr
 }
 
 func splitSyncFiles(syncFiles string) []string {
