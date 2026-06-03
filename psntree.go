@@ -231,6 +231,23 @@ func listAvailableRoles(db *sql.DB) []string {
 	return roles
 }
 
+func isNumericEqual(s1, s2 string) bool {
+	s1 = strings.TrimSpace(s1)
+	s2 = strings.TrimSpace(s2)
+	if s1 == s2 {
+		return true
+	}
+	trim1 := strings.TrimLeft(s1, "0")
+	trim2 := strings.TrimLeft(s2, "0")
+	if trim1 == "" {
+		trim1 = "0"
+	}
+	if trim2 == "" {
+		trim2 = "0"
+	}
+	return trim1 == trim2
+}
+
 func fillUserNumbers(db *sql.DB, execer dbExecer, people []Psn, logFunc func(string)) error {
 	for i, value := range people {
 		usrNo, ssoID, dep, depID, err := findUserBySSOID(db, value.SysID)
@@ -252,7 +269,7 @@ func fillUserNumbers(db *sql.DB, execer dbExecer, people []Psn, logFunc func(str
 			valDepName := strings.TrimSpace(value.DepName)
 			valDepID := strings.TrimSpace(value.DepID)
 
-			if dbSSOID == "" || dbDep != valDepName || dbDepID != valDepID || dbSSOID != valSysID {
+			if dbSSOID == "" || dbDep != valDepName || !isNumericEqual(dbDepID, valDepID) || dbSSOID != valSysID {
 				fmt.Printf("DEBUG: usrNo=%q, dbSSOID=%q (len=%d), dbDep=%q (len=%d), dbDepID=%q (len=%d) vs valSysID=%q (len=%d), valDepName=%q (len=%d), valDepID=%q (len=%d)\n",
 					usrNo, dbSSOID, len(dbSSOID), dbDep, len(dbDep), dbDepID, len(dbDepID),
 					valSysID, len(valSysID), valDepName, len(valDepName), valDepID, len(valDepID))
