@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 
@@ -140,6 +141,10 @@ func (app *PsnTree) GetRemoteFileAndCompare(client *SherryClient.SryClient, file
 	}
 	if result == "" {
 		return fmt.Errorf("remote file %s result is empty", fileName)
+	}
+
+	if err := os.WriteFile(fileName, []byte(result), 0644); err != nil {
+		return fmt.Errorf("save remote file %s: %w", fileName, err)
 	}
 
 	people := []Psn{}
