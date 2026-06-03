@@ -241,7 +241,8 @@ func fillUserNumbers(db *sql.DB, execer dbExecer, people []Psn, logFunc func(str
 				if _, err := execer.Exec("update doreuser set ssoID=?,department=?,depID=? where usrNo=?", valSysID, valDepName, valDepID, usrNo); err != nil {
 					return err
 				}
-				msg := fmt.Sprintf("update ssoID: %v", value)
+				msg := fmt.Sprintf("更新使用者資訊 [usrNo: %s, 姓名: %s]:\n  - 舊資料: ssoID=%q, 單位=%q (代碼: %q)\n  - 新資料: ssoID=%q, 單位=%q (代碼: %q)",
+					usrNo, value.Name, dbSSOID, dbDep, dbDepID, valSysID, valDepName, valDepID)
 				fmt.Println(msg)
 				if logFunc != nil {
 					logFunc(msg)
