@@ -205,12 +205,30 @@ func lookupRoleID(db *sql.DB, typez string) (string, error) {
 	row := db.QueryRow("select roleID from role where namez=?", typez)
 	if err := row.Scan(&roleID); err != nil {
 		if err == sql.ErrNoRows {
-			return "", fmt.Errorf("role not found for typez %s", typez)
+			available := listAvailableRoles(db)
+			return "", fmt.Errorf("role not found for typez %q. 資料庫中現有的角色 (role.namez): %v", typez, available)
 		}
 		return "", err
 	}
 
 	return roleID, nil
+}
+
+func listAvailableRoles(db *sql.DB) []string {
+	rows, err := db.Query("select namez from role")
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var roles []string
+	for rows.Next() {
+		var r string
+		if err := rows.Scan(&r); err == nil {
+			roles = append(roles, r)
+		}
+	}
+	return roles
 }
 
 func fillUserNumbers(db *sql.DB, execer dbExecer, people []Psn, logFunc func(string)) error {
