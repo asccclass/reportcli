@@ -1,0 +1,19 @@
+{
+   "Title": "全院同仁學習時數管理系統每日報表程式（開發區）",
+   "DataDir": "/vagrant/go/src/github.com/asccclass/jwt/",
+   "Proxy": "",
+   "WebServiceUrl": "http://wteamapi.its.sinica.edu.tw/coursehours/fisa/",
+   "Dbconnect": {
+      "DBMSType": "MySQL",
+      "DBMS": "mysql",
+      "DbServer": "192.168.12.223",
+      "DbPort": "3306",
+      "DbName": "learnpoints",
+      "DbLogin": "ascal",
+      "DbPasswd": "webteam@2018"
+   },
+   "orgTreeServerUrl": "http://10.109.233.40/datahubcenter/",
+   "clientID" : "bpm",
+   "clientSecret": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NTI4NDA4MDIsImp0aSI6ImJwbSIsImlhdCI6MTY1MDI0ODgwMiwiaXNzIjoib3BlbmRhdGFjZW50ZXIifQ.aNu-fu04bYahrQZV0Q9CkKVbTelk1__12NrZoUG_77I",
+   "syncFiles" : "CyberSecurityITs.json,CyberSecurityManager.json,GenderEqualityManager.json"
+}
