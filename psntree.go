@@ -230,6 +230,9 @@ func fillUserNumbers(db *sql.DB, execer dbExecer, people []Psn) error {
 			valDepID := strings.TrimSpace(value.DepID)
 
 			if dbSSOID == "" || dbDep != valDepName || dbDepID != valDepID || dbSSOID != valSysID {
+				fmt.Printf("DEBUG: usrNo=%q, dbSSOID=%q (len=%d), dbDep=%q (len=%d), dbDepID=%q (len=%d) vs valSysID=%q (len=%d), valDepName=%q (len=%d), valDepID=%q (len=%d)\n",
+					usrNo, dbSSOID, len(dbSSOID), dbDep, len(dbDep), dbDepID, len(dbDepID),
+					valSysID, len(valSysID), valDepName, len(valDepName), valDepID, len(valDepID))
 				if _, err := execer.Exec("update doreuser set ssoID=?,department=?,depID=? where usrNo=?", valSysID, valDepName, valDepID, usrNo); err != nil {
 					return err
 				}
