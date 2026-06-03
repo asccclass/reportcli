@@ -15,12 +15,19 @@ import (
 	SherryClient "reportcli/client"
 )
 
+type UserDept struct {
+	DepID   string
+	DepName string
+}
+
 type PsnTree struct {
-	ServerURL  string
-	Files      []string
-	Bearer     string
-	DBConfig   DBConnect
-	ReportLogs []string
+	ServerURL        string
+	Files            []string
+	Bearer           string
+	DBConfig         DBConnect
+	ReportLogs       []string
+	ValidDepsBySysID map[string][]UserDept
+	ValidDepsByName  map[string][]UserDept
 }
 
 type Psn struct {
@@ -107,8 +114,39 @@ func (app *PsnTree) DoCompare(payload string) error {
 	}
 	app.Bearer = ber.Token
 
+	app.ValidDepsBySysID = make(map[string][]UserDept)
+	app.ValidDepsByName = make(map[string][]UserDept)
+
+	type FileData struct {
+		name   string
+		people []Psn
+	}
+	var filesData []FileData
+
 	for _, fileName := range app.Files {
-		if err := app.GetRemoteFileAndCompare(client, fileName); err != nil {
+		people, err := app.DownloadAndParseFile(client, fileName)
+		if err != nil {
+			return err
+		}
+		filesData = append(filesData, FileData{name: fileName, people: people})
+
+		for _, p := range people {
+			sysID := strings.TrimSpace(p.SysID)
+			name := strings.TrimSpace(p.Name)
+			depID := strings.TrimSpace(p.DepID)
+			depName := strings.TrimSpace(p.DepName)
+
+			if sysID != "" {
+				app.ValidDepsBySysID[sysID] = append(app.ValidDepsBySysID[sysID], UserDept{DepID: depID, DepName: depName})
+			}
+			if name != "" {
+				app.ValidDepsByName[name] = append(app.ValidDepsByName[name], UserDept{DepID: depID, DepName: depName})
+			}
+		}
+	}
+
+	for _, fd := range filesData {
+		if err := app.CompareRemoteFile(fd.name, fd.people); err != nil {
 			return err
 		}
 	}
@@ -116,7 +154,7 @@ func (app *PsnTree) DoCompare(payload string) error {
 	return nil
 }
 
-func (app *PsnTree) GetRemoteFileAndCompare(client *SherryClient.SryClient, fileName string) error {
+func (app *PsnTree) DownloadAndParseFile(client *SherryClient.SryClient, fileName string) ([]Psn, error) {
 	payload := &bytes.Buffer{}
 	writer := multipart.NewWriter(payload)
 	_ = writer.WriteField("user", "bpm")
@@ -125,15 +163,12 @@ func (app *PsnTree) GetRemoteFileAndCompare(client *SherryClient.SryClient, file
 	_ = writer.WriteField("object", "/read/"+fileName)
 	_ = writer.WriteField("systemName", "opendatacenter")
 	if err := writer.Close(); err != nil {
-		return err
+		return nil, err
 	}
 
-	msg := fmt.Sprintf("sync remote file %s...", fileName)
-	fmt.Println(msg)
-	app.log(msg)
 	req, err := http.NewRequest(http.MethodGet, app.ServerURL+"read/"+fileName, payload)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	client.Request = req
 	client.AddHeader("Authorization", "Bearer "+app.Bearer)
@@ -141,20 +176,28 @@ func (app *PsnTree) GetRemoteFileAndCompare(client *SherryClient.SryClient, file
 
 	result, err := client.Do()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if result == "" {
-		return fmt.Errorf("remote file %s result is empty", fileName)
+		return nil, fmt.Errorf("remote file %s result is empty", fileName)
 	}
 
 	if err := os.WriteFile(fileName, []byte(result), 0644); err != nil {
-		return fmt.Errorf("save remote file %s: %w", fileName, err)
+		return nil, fmt.Errorf("save remote file %s: %w", fileName, err)
 	}
 
 	people := []Psn{}
 	if err := json.Unmarshal([]byte(result), &people); err != nil {
-		return fmt.Errorf("parse remote file %s: %w", fileName, err)
+		return nil, fmt.Errorf("parse remote file %s: %w", fileName, err)
 	}
+	return people, nil
+}
+
+func (app *PsnTree) CompareRemoteFile(fileName string, people []Psn) error {
+	msg := fmt.Sprintf("sync remote file %s...", fileName)
+	fmt.Println(msg)
+	app.log(msg)
+
 	if len(people) == 0 {
 		fmt.Printf("remote file %s has no people.\n", fileName)
 		return nil
@@ -171,7 +214,7 @@ func (app *PsnTree) GetRemoteFileAndCompare(client *SherryClient.SryClient, file
 		return err
 	}
 
-	if err := fillUserNumbers(conn.Conn, conn, people, app.log); err != nil {
+	if err := app.fillUserNumbers(conn.Conn, conn, people, app.log); err != nil {
 		return err
 	}
 
@@ -248,7 +291,7 @@ func isNumericEqual(s1, s2 string) bool {
 	return trim1 == trim2
 }
 
-func fillUserNumbers(db *sql.DB, execer dbExecer, people []Psn, logFunc func(string)) error {
+func (app *PsnTree) fillUserNumbers(db *sql.DB, execer dbExecer, people []Psn, logFunc func(string)) error {
 	for i, value := range people {
 		usrNo, ssoID, dep, depID, err := findUserBySSOID(db, value.SysID)
 		if err != nil {
@@ -269,7 +312,26 @@ func fillUserNumbers(db *sql.DB, execer dbExecer, people []Psn, logFunc func(str
 			valDepName := strings.TrimSpace(value.DepName)
 			valDepID := strings.TrimSpace(value.DepID)
 
-			if dbSSOID == "" || dbDep != valDepName || !isNumericEqual(dbDepID, valDepID) || dbSSOID != valSysID {
+			alreadyCorrect := false
+			if dbSSOID == valSysID && dbSSOID != "" {
+				validDeps := app.ValidDepsBySysID[valSysID]
+				for _, vd := range validDeps {
+					if vd.DepName == dbDep && isNumericEqual(vd.DepID, dbDepID) {
+						alreadyCorrect = true
+						break
+					}
+				}
+			} else if dbSSOID == "" {
+				validDeps := app.ValidDepsByName[strings.TrimSpace(value.Name)]
+				for _, vd := range validDeps {
+					if vd.DepName == dbDep && isNumericEqual(vd.DepID, dbDepID) {
+						alreadyCorrect = true
+						break
+					}
+				}
+			}
+
+			if !alreadyCorrect {
 				fmt.Printf("DEBUG: usrNo=%q, dbSSOID=%q (len=%d), dbDep=%q (len=%d), dbDepID=%q (len=%d) vs valSysID=%q (len=%d), valDepName=%q (len=%d), valDepID=%q (len=%d)\n",
 					usrNo, dbSSOID, len(dbSSOID), dbDep, len(dbDep), dbDepID, len(dbDepID),
 					valSysID, len(valSysID), valDepName, len(valDepName), valDepID, len(valDepID))
