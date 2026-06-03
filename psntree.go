@@ -343,6 +343,31 @@ func (app *PsnTree) fillUserNumbers(db *sql.DB, execer dbExecer, people []Psn, l
 					return err
 				}
 			}
+		} else {
+			var nextUsrNo int64
+			row := db.QueryRow("select coalesce(max(usrNo), 0) + 1 from doreuser")
+			if err := row.Scan(&nextUsrNo); err != nil {
+				return fmt.Errorf("get max usrNo: %w", err)
+			}
+
+			query := "insert into doreuser (usrNo, name, department, depID, title, email, tel, ssoID, tcode) values (?, ?, ?, ?, '', '', '', ?, '')"
+			_, err := execer.Exec(query, nextUsrNo, value.Name, value.DepName, value.DepID, value.SysID)
+			var resultMsg string
+			if err != nil {
+				resultMsg = fmt.Sprintf("失敗: %v", err)
+			} else {
+				usrNo = fmt.Sprintf("%d", nextUsrNo)
+				resultMsg = fmt.Sprintf("成功 (新增 usrNo: %s)", usrNo)
+			}
+			msg := fmt.Sprintf("新增使用者資訊 [姓名: %s, ssoID: %s] 到資料表 doreuser:\n  - 執行 SQL: %s (參數: usrNo=%d, name=%q, department=%q, depID=%q, ssoID=%q)\n  - 執行結果: %s",
+				value.Name, value.SysID, query, nextUsrNo, value.Name, value.DepName, value.DepID, value.SysID, resultMsg)
+			fmt.Println(msg)
+			if logFunc != nil {
+				logFunc(msg)
+			}
+			if err != nil {
+				return err
+			}
 		}
 
 		people[i].UsrNo = usrNo
