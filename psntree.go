@@ -211,13 +211,9 @@ func fillUserNumbers(db *sql.DB, execer dbExecer, people []Psn) error {
 			if err != sql.ErrNoRows {
 				return err
 			}
-			var depIDOut string
-			usrNo, ssoID, dep, depIDOut, err = findUserByNameAndDepID(db, value.Name, value.DepID)
+			usrNo, ssoID, dep, depID, err = findUserByName(db, value.Name)
 			if err != nil && err != sql.ErrNoRows {
 				return err
-			}
-			if err == nil {
-				depID = depIDOut
 			}
 		}
 
@@ -252,10 +248,35 @@ func findUserBySSOID(db *sql.DB, sysID string) (usrNo, ssoID, dep, depID string,
 	return usrNo, ssoID, dep, depID, err
 }
 
-func findUserByNameAndDepID(db *sql.DB, name, depID string) (usrNo, ssoID, dep, depIDOut string, err error) {
-	row := db.QueryRow("select usrNo,ssoID,department,depID from doreuser where name=? and depID=?", name, depID)
-	err = row.Scan(&usrNo, &ssoID, &dep, &depIDOut)
-	return usrNo, ssoID, dep, depIDOut, err
+func findUserByName(db *sql.DB, name string) (usrNo, ssoID, dep, depID string, err error) {
+	rows, err := db.Query("select usrNo,ssoID,department,depID from doreuser where name=?", name)
+	if err != nil {
+		return "", "", "", "", err
+	}
+	defer rows.Close()
+
+	type User struct {
+		usrNo, ssoID, dep, depID string
+	}
+	var users []User
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.usrNo, &u.ssoID, &u.dep, &u.depID); err == nil {
+			users = append(users, u)
+		}
+	}
+	if len(users) == 0 {
+		return "", "", "", "", sql.ErrNoRows
+	}
+	if len(users) == 1 {
+		return users[0].usrNo, users[0].ssoID, users[0].dep, users[0].depID, nil
+	}
+	for _, u := range users {
+		if u.ssoID == "" {
+			return u.usrNo, u.ssoID, u.dep, u.depID, nil
+		}
+	}
+	return users[0].usrNo, users[0].ssoID, users[0].dep, users[0].depID, nil
 }
 
 func listPeopleInRole(db *sql.DB, roleID string) ([]Psn, error) {
