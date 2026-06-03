@@ -144,6 +144,7 @@ func (app *PsnTree) DoCompare(payload string) error {
 		if err := app.CompareRemoteFile(fd.name, fd.people); err != nil {
 			return err
 		}
+		_ = os.Remove(fd.name)
 	}
 
 	return nil
