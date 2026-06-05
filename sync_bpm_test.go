@@ -70,3 +70,33 @@ func TestLoadConfigInvalidJSON(t *testing.T) {
 		t.Fatal("loadConfig returned nil error for invalid JSON")
 	}
 }
+
+func TestConfigureProxy(t *testing.T) {
+	envNames := []string{"HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"}
+	for _, name := range envNames {
+		t.Setenv(name, "")
+	}
+
+	if err := configureProxy(" "); err != nil {
+		t.Fatalf("configureProxy empty returned error: %v", err)
+	}
+	for _, name := range envNames {
+		if got := os.Getenv(name); got != "" {
+			t.Fatalf("%s = %q, want empty", name, got)
+		}
+	}
+
+	proxy := "http://127.0.0.1:8080"
+	if err := configureProxy(proxy); err != nil {
+		t.Fatalf("configureProxy returned error: %v", err)
+	}
+	for _, name := range envNames {
+		if got := os.Getenv(name); got != proxy {
+			t.Fatalf("%s = %q, want %q", name, got, proxy)
+		}
+	}
+
+	if err := configureProxy("127.0.0.1:8080"); err == nil {
+		t.Fatal("configureProxy returned nil error for proxy without scheme")
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"strings"
 
@@ -31,6 +32,10 @@ func main() {
 	sysini, err := loadConfig(*configPath)
 	if err != nil {
 		fmt.Printf("load config failed: %s\n", err)
+		os.Exit(1)
+	}
+	if err := configureProxy(sysini.Proxy); err != nil {
+		fmt.Printf("configure proxy failed: %s\n", err)
 		os.Exit(1)
 	}
 
@@ -63,6 +68,27 @@ func loadConfig(path string) (System, error) {
 	}
 
 	return sysini, nil
+}
+
+func configureProxy(proxy string) error {
+	proxy = strings.TrimSpace(proxy)
+	if proxy == "" {
+		return nil
+	}
+
+	proxyURL, err := url.Parse(proxy)
+	if err != nil {
+		return fmt.Errorf("parse Proxy %q: %w", proxy, err)
+	}
+	if proxyURL.Scheme == "" || proxyURL.Host == "" {
+		return fmt.Errorf("Proxy must be a valid URL, for example http://127.0.0.1:8080")
+	}
+
+	_ = os.Setenv("HTTP_PROXY", proxy)
+	_ = os.Setenv("HTTPS_PROXY", proxy)
+	_ = os.Setenv("http_proxy", proxy)
+	_ = os.Setenv("https_proxy", proxy)
+	return nil
 }
 
 func syncBPM(sysini System) error {

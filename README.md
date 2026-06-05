@@ -120,7 +120,7 @@ go build -o reportcli.exe .
 | --- | --- | --- |
 | `Title` | 否 | 通知訊息使用的系統名稱。 |
 | `DataDir` | 否 | 目前程式未直接使用，保留作為既有設定欄位。 |
-| `Proxy` | 否 | 目前程式未直接使用，保留作為既有設定欄位。 |
+| `Proxy` | 否 | 若有設定值，所有對外 HTTP/HTTPS 連線會透過此 proxy，例如 `http://127.0.0.1:8080`。 |
 | `WebServiceUrl` | 否 | 目前同步流程未直接使用，保留作為既有設定欄位。 |
 | `Dbconnect` | 是 | BPM MySQL 連線設定。 |
 | `orgTreeServerUrl` | 是 | 組織樹服務根 URL。程式會呼叫 `{orgTreeServerUrl}accesstoken` 與 `{orgTreeServerUrl}read/{fileName}`。 |
